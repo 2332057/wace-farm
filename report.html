@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+<details class="float-box" open>
+  <summary class="float-box">レポート</summary>
+
+  <h3>開発コンセプト</h3>
+  <ul>
+    <li>ワンページ・ターン制のシンプルな農場経営ゲーム。</li>
+    <li>セッションのみで状態を保持し、学習用に実装を明快に。</li>
+    <li>データ駆動（data.php）による拡張容易性（作物やタイルの追加が容易）。</li>
+    <li>低コストなUI（チェックボックス×ラベル×背景テクスチャ）で操作性を確保。</li>
+  </ul>
+
+  <h3>システム概要</h3>
+  <ul>
+    <li>フィールドは 20×20 グリッド。各マスは {type, crop, planted_at} を保持。</li>
+    <li>ゲーム状態はセッションに保持（money, rank, turns, inventory, farm, last_action）。</li>
+    <li>操作
+      <ul>
+        <li>「待つ」: ターンのみ+1。</li>
+        <li>タイル/作物配置: data.php の定義に基づきコスト消費・ランク制限を適用。</li>
+        <li>収穫: 植付ターン差が growth_turns 以上の作物のみ収穫可。インベントリ加算。</li>
+      </ul>
+    </li>
+    <li>表示
+      <ul>
+        <li>成熟判定: 成熟済みは作物名頭文字の大文字、未成熟は小文字。</li>
+        <li>背景テクスチャ: assets/texture/{type}.png。</li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3>アピールポイント（苦労・工夫）</h3>
+  <ul>
+    <li>サーバーサイドのみで完全に状態管理（DB不要）。</li>
+    <li>ランクに応じた同時選択上限とコスト計算の一貫したバリデーション。</li>
+    <li>最大選択セルへのアンカー移動で大量グリッドでも操作位置を見失わない。</li>
+    <li>data.php から動的に CSS クラス/色を生成し、見た目とロジックの同期を担保。</li>
+  </ul>
+
+  <h3>システムの使い方</h3>
+  <ul>
+    <li>「操作モード」でアクションを選択。</li>
+    <li>グリッドで対象セルを複数選択（同時変更はランク個まで）。</li>
+    <li>「決定」で実行。コストが差し引かれ、必要に応じてターン+1。</li>
+    <li>作物は畑（field）かつ空きにのみ植付可。成熟後に「収穫」。</li>
+    <li>「待つ」で時間経過のみ。メニューから「お店に行く」でショップへ。</li>
+  </ul>
+
+  <h3>システムの構成（処理部の役割とページ対応）</h3>
+  <ul>
+    <li>index.php: ゲーム本体。入力受理、検証、状態更新、盤面レンダリング、メニュー/統計表示。</li>
+    <li>data.php: タイル/作物定義（name, cost, color, type, rank, growth_turns 等）。</li>
+    <li>shop.php: ショップ機能（所持金/在庫・拡張など）。</li>
+    <li>style.css: レイアウト/装飾。タイル色も data.php から動的生成。</li>
+    <li>assets/texture: 各タイル/作物の背景テクスチャ。</li>
+  </ul>
+
+  <h3>Webページ間の関係（遷移図）</h3>
+  <pre>
+[index.php]  -- お店に行く -->  [shop.php]
+   ^                             |
+   |------ 戻る/リンク -----------|
+  </pre>
+  <ul>
+    <li>data.php は index.php / shop.php から読み込み（画面ではない）。</li>
+  </ul>
+
+  <h3>フローチャート（主要フロー）</h3>
+  <pre>
+[ページ表示/入力] 
+      |
+      v
+[POST?] --No--> [盤面/メニュー表示] -> (待機)
+  |
+ Yes
+  |
+  v
+[action/選択セルを取得] -> [last_action 更新]
+  |
+  +-- action=wait --> [turns++][Redirect]
+  |
+  +-- 選択数 > rank? --Yes--> [エラー][Redirect]
+  |                      No
+  |
+  v
+[action が有効?（data.php 定義）] --No--> [Redirect]
+  |
+ Yes
+  |
+  v
+[コスト・ランク検証] -> [NG? エラー+Redirect]
+  |
+  v
+[追加検証]
+  - 収穫: crop 有/成熟?
+  - 植付: field かつ空き?
+  |
+  +-- NG --> [エラー][Redirect]
+  |
+  v
+[状態更新]
+  - money -= total_cost
+  - turns++
+  - 各セルに処理適用（植付/収穫/配置）
+  |
+  v
+[アンカー生成（最大行列）][Redirect]
+  </pre>
+</details>
+
+</body>
+</html>
